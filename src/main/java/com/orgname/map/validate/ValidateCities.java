@@ -8,13 +8,13 @@ import org.springframework.util.StringUtils;
 public class ValidateCities {
 
    public  void validateCities(String orgCity, String desCity) throws CityNameRequiredExcpetion {
-       validateCity(orgCity);
-       validateCity(desCity);
+       validateCity(orgCity , "Origin City is required");
+       validateCity(desCity , "Destination City is required");
     }
 
-   private  void validateCity(String city) throws CityNameRequiredExcpetion {
-       if(StringUtils.isEmpty(city)) {
-           throw new CityNameRequiredExcpetion("OriginCity required");
+   private  void validateCity(String city, String errMsg) throws CityNameRequiredExcpetion {
+       if(StringUtils.isEmpty(StringUtils.trimWhitespace(city))) {
+           throw new CityNameRequiredExcpetion(errMsg);
        }
     }
 }

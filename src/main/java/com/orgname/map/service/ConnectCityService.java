@@ -7,8 +7,7 @@ import com.orgname.map.validate.ValidateCities;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 @Component
 public class ConnectCityService implements IConnectCitySerevice {
@@ -36,77 +35,81 @@ public class ConnectCityService implements IConnectCitySerevice {
         //Validate city first before you read the data from repo
         validateCities.validateCities(orgCity,desCity);
         List<Road>  roads = retrieveConnectedCityRepo.retrieveConnectedCities();
-        //Use DRY priciple
-        List<Road> listOrgRoads = getListOfNodes(roads,orgCity);
-        List<Road> listDesRoads = getListOfNodes(roads,desCity);
-        return  evaluateIfRoadExists(orgCity, listOrgRoads, listDesRoads);
+        Map<String, Set<String>> adjacentCityMap = getAdjacentCityMap(roads);
+        return  evaluateIfRoadExists(adjacentCityMap,orgCity,desCity);
     }
 
     /**
      * <p> To determine if the road exist , apply the following algorithm
      * </p>
-     * <p> 1. Iterate the origin city list and finds the connected city of given origin
-     *     2. Check if the connected city is there in destination city list</p>
+     * <p> 1. Get the list of adjacent cities of orgin city
+     *     2. Find out if the destination is there in adjacent cities if not then
+     *        a. find the adjacent cities of adjacent city selected in step#2
+     *        b. If the adjacent city is already visited do not visit them , get the next adjacent city
+     *        c. go to step 2 and loop through.
+     *     2. While all the adjacent cities of adjacent city of origin visited , terminate the program/p>
+     * @param adjacentCityMap
      * @param orgCity
-     * @param listOrgRoads
-     * @param listDesRoads
+     * @param desCity
      * @return
      */
-    private String evaluateIfRoadExists(String orgCity, List<Road> listOrgRoads, List<Road> listDesRoads) {
-        String ifConnected ="No";
+    private String evaluateIfRoadExists(Map<String, Set<String>> adjacentCityMap, String orgCity, String desCity) {
+        boolean found = false;
+        List<String>  visitedCities =  new ArrayList<>();
+        visitedCities.add(orgCity);
+        Set<String>  adjacentCities = adjacentCityMap.get(orgCity);
+        Queue<String> waitingQueue = new LinkedList<>();
+        populateAdjacentCityToQueue(waitingQueue,adjacentCities,visitedCities);
+        while(!found && !waitingQueue.isEmpty()) {
+             if(adjacentCities.contains(desCity)){
+                 found=true;
+             }else{
+                 String visitedCity = waitingQueue.remove();
+                 visitedCities.add(visitedCity);
+                 adjacentCities=adjacentCityMap.get(visitedCity);
+                 populateAdjacentCityToQueue(waitingQueue,adjacentCities,visitedCities);
 
-        // If any of the node is not found that means there is not connectivity between those road
-        if(listOrgRoads.isEmpty()
-                ||listOrgRoads.isEmpty()) {
-            return ifConnected;
+             }
         }
+        return found?"Yes":"No";
+    }
 
-        for(int i=0; i<listOrgRoads.size() &&!"Yes".equals(ifConnected);i++ ) {
-
-                String connectedNode = null;
-                Road road =listOrgRoads.get(i);
-                if (road.getOrgCity().equals(orgCity)) {
-                    connectedNode = road.getDesCity();
-                } else {
-                    connectedNode = road.getOrgCity();
-                }
-                ifConnected = checkIfThereInDestNode(listDesRoads, connectedNode);
-
-        }
-        return ifConnected;
+    private void populateAdjacentCityToQueue(Queue<String> waitingQueue, Set<String> adjacentCities, List<String> visitedCities) {
+        adjacentCities.forEach(city->{
+            if(!visitedCities.contains(city) &&
+                    !waitingQueue.contains(city)){
+                waitingQueue.add(city);
+            }
+        });
     }
 
     /**
-     * Finds the list of nodes that matches with given city
+     * <p> if there is a road between A->B then it sgould return like this
+     *  {
+     *    {"A" {B}},
+     *    {"B", {A}}
+     *    Since A and B are adjacent city of each other</p>
      * @param roads
-     * @param city
      * @return
      */
-    private List<Road> getListOfNodes(List<Road> roads , String city) {
-        List<Road> listOfNodes = new ArrayList<Road>() ;
-        for(Road road : roads) {
-            if(road.getOrgCity().equals(city)
-                    || road.getDesCity().equals(city)) {
-                listOfNodes.add(road);
-            }
-        }
-        return listOfNodes;
+    private Map<String, Set<String>> getAdjacentCityMap(List<Road> roads) {
+        Map<String , Set<String>> map  =  new HashMap<String, Set<String>>();
+        roads.forEach(road->{
+            mapAdjacentCity(map, road.getOrgCity(),road.getDesCity());
+            mapAdjacentCity(map, road.getDesCity(),road.getOrgCity());
 
+        });
+        return map;
     }
 
-    /**
-     * If the Node is found in destination Roads (which is grap edge) then return yes otherwise no
-     * @param listDesRoads
-     * @param connectedNode
-     * @return
-     */
-    private String checkIfThereInDestNode(List<Road> listDesRoads, String connectedNode) {
-        for(Road road :listDesRoads){
-            if (connectedNode.equals(road.getDesCity())
-               ||connectedNode.equals(road.getOrgCity()) ){
-                return  "Yes";
-            }
+    private void mapAdjacentCity(Map<String, Set<String>> map, String OrgCity,String destCity) {
+        Set<String> origAdjacentCity = map.get(OrgCity);
+        if(origAdjacentCity==null){
+            origAdjacentCity =new HashSet<>();
+            map.put(OrgCity,origAdjacentCity);
         }
-        return "No";
+        origAdjacentCity.add(destCity);
     }
+
+
 }
